@@ -50,6 +50,19 @@ _cached_create_taxonomy_mapping = functools.lru_cache()(create_taxonomy_mapping)
 _cached_get_taxonomy = functools.lru_cache()(get_taxonomy)
 
 
+def normalize_language_code(language_code: str) -> str:
+    """Normalize language code to base language code for OpenFoodFacts API.
+
+    :param language_code: The language code to normalize
+    :return: The normalized base language code
+    """
+    if not language_code:
+        return "en"  # default fallback
+
+    base_code = language_code.split("_")[0].split("-")[0]
+    return base_code.lower()
+
+
 def normalize_taxonomized_tags(taxonomy_type: str, value_tags: list[str]) -> list[str]:
     """Normalizes a list of tags based on the taxonomy type.
 
@@ -416,6 +429,23 @@ def upload_product_image_in_off(
         version=APIVersion.v3,
         environment=Environment[settings.ENVIRONMENT],
     )
+    
+    # Normalize language codes in selected dict if present
+    # The selected dict may contain locale codes (e.g., nl_BE) which need to be
+    # normalized to base language codes (e.g., nl) for the OpenFoodFacts API
+    if selected:
+        normalized_selected = {}
+        for key, value in selected.items():
+            if isinstance(value, dict):
+                normalized_value = {}
+                for lang_code, lang_value in value.items():
+                    normalized_lang_code = normalize_language_code(lang_code)
+                    normalized_value[normalized_lang_code] = lang_value
+                normalized_selected[key] = normalized_value
+            else:
+                normalized_selected[key] = value
+        selected = normalized_selected
+    
     return client.product.upload_image(
         code, image_data_base64=image_data_base64, selected=selected
     )

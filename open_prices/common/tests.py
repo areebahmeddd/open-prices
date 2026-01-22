@@ -104,6 +104,26 @@ class OpenFoodFactsTest(TestCase):
     def setUpTestData(cls):
         pass
 
+    def test_normalize_language_code(self):
+        self.assertEqual(common_openfoodfacts.normalize_language_code("nl_BE"), "nl")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("en_GB"), "en")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("pt_BR"), "pt")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("zh_CN"), "zh")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("nl_NL"), "nl")
+
+        self.assertEqual(common_openfoodfacts.normalize_language_code("en-GB"), "en")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("pt-BR"), "pt")
+
+        self.assertEqual(common_openfoodfacts.normalize_language_code("en"), "en")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("nl"), "nl")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("fr"), "fr")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("de"), "de")
+
+        self.assertEqual(common_openfoodfacts.normalize_language_code(""), "en")  # default fallback
+
+        self.assertEqual(common_openfoodfacts.normalize_language_code("NL_BE"), "nl")
+        self.assertEqual(common_openfoodfacts.normalize_language_code("EN"), "en")
+
     def test_barcode_is_valid(self):
         for BARCODE_OK in ["8001505005707"]:
             self.assertTrue(common_openfoodfacts.barcode_is_valid(BARCODE_OK))
