@@ -8,7 +8,6 @@ on:
     tags:
       - v*.*.*
 
-
 # Note on secrets used for connection
 # They are configured as environment secrets
 # HOST is the internal ip of VM containing docker
@@ -19,6 +18,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: github.repository_owner == 'openfoodfacts'
     strategy:
       matrix:
         env:
@@ -27,204 +27,204 @@ jobs:
     environment: ${{ matrix.env }}
     concurrency: ${{ matrix.env }}
     steps:
-    - name: Set common variables
-      run: |
-        echo "SSH_USERNAME=off" >> $GITHUB_ENV
-    - name: Set various variable for staging (net) deployment
-      if: matrix.env == 'open-prices-net'
-      run: |
-        echo "SSH_PROXY_HOST=ovh1.openfoodfacts.org" >> $GITHUB_ENV
-        echo "SSH_HOST=10.1.0.200" >> $GITHUB_ENV
-        echo "ENVIRONMENT=net" >> $GITHUB_ENV
-        echo "CSRF_TRUSTED_ORIGINS=https://prices.openfoodfacts.net" >> $GITHUB_ENV
-        # Triton server is on the same datacenter as the staging server, so we use the internal IP
-        echo "TRITON_URI=10.1.0.200:5504" >> $GITHUB_ENV
-        # Open Prices fetches fetch data from Production Product Opener,
-        # so we use the production redis server
-        echo "REDIS_HOST=10.1.0.113" >> $GITHUB_ENV
-        echo "REDIS_PORT=6379" >> $GITHUB_ENV
-    - name: Set various variable for production deployment
-      if: matrix.env == 'open-prices-org'
-      run: |
-        echo "SSH_PROXY_HOST=ovh2.openfoodfacts.org" >> $GITHUB_ENV
-        echo "SSH_HOST=10.1.0.201" >> $GITHUB_ENV
-        echo "ENVIRONMENT=org" >> $GITHUB_ENV
-        echo "CSRF_TRUSTED_ORIGINS=https://prices.openfoodfacts.org" >> $GITHUB_ENV
-        # Triton server is on Moji datacenter, so we use the stunnel client running
-        # on the OVH datacenter to access it
-        # The associated Triton server (mapped with port 5504 by Stunnel) is running on GPU
-        echo "TRITON_URI=10.1.0.113:5504" >> $GITHUB_ENV
-        echo "REDIS_HOST=10.1.0.113" >> $GITHUB_ENV
-        echo "REDIS_PORT=6379" >> $GITHUB_ENV
-    - name: Wait for docker image container build workflow
-      uses: tomchv/wait-my-workflow@v1.1.0
-      id: wait-build
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        checkName: build (api)
-        ref: ${{ github.event.pull_request.head.sha || github.sha }}
-        intervalSeconds: 10
-        timeoutSeconds: 600 # 10m
+      - name: Set common variables
+        run: |
+          echo "SSH_USERNAME=off" >> $GITHUB_ENV
+      - name: Set various variable for staging (net) deployment
+        if: matrix.env == 'open-prices-net'
+        run: |
+          echo "SSH_PROXY_HOST=ovh1.openfoodfacts.org" >> $GITHUB_ENV
+          echo "SSH_HOST=10.1.0.200" >> $GITHUB_ENV
+          echo "ENVIRONMENT=net" >> $GITHUB_ENV
+          echo "CSRF_TRUSTED_ORIGINS=https://prices.openfoodfacts.net" >> $GITHUB_ENV
+          # Triton server is on the same datacenter as the staging server, so we use the internal IP
+          echo "TRITON_URI=10.1.0.200:5504" >> $GITHUB_ENV
+          # Open Prices fetches fetch data from Production Product Opener,
+          # so we use the production redis server
+          echo "REDIS_HOST=10.1.0.113" >> $GITHUB_ENV
+          echo "REDIS_PORT=6379" >> $GITHUB_ENV
+      - name: Set various variable for production deployment
+        if: matrix.env == 'open-prices-org'
+        run: |
+          echo "SSH_PROXY_HOST=ovh2.openfoodfacts.org" >> $GITHUB_ENV
+          echo "SSH_HOST=10.1.0.201" >> $GITHUB_ENV
+          echo "ENVIRONMENT=org" >> $GITHUB_ENV
+          echo "CSRF_TRUSTED_ORIGINS=https://prices.openfoodfacts.org" >> $GITHUB_ENV
+          # Triton server is on Moji datacenter, so we use the stunnel client running
+          # on the OVH datacenter to access it
+          # The associated Triton server (mapped with port 5504 by Stunnel) is running on GPU
+          echo "TRITON_URI=10.1.0.113:5504" >> $GITHUB_ENV
+          echo "REDIS_HOST=10.1.0.113" >> $GITHUB_ENV
+          echo "REDIS_PORT=6379" >> $GITHUB_ENV
+      - name: Wait for docker image container build workflow
+        uses: tomchv/wait-my-workflow@v1.1.0
+        id: wait-build
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          checkName: build (api)
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          intervalSeconds: 10
+          timeoutSeconds: 600 # 10m
 
-    - name: Do something if build isn't launch
-      if: steps.wait-build.outputs.conclusion == 'does not exist'
-      run: echo job does not exist && true
+      - name: Do something if build isn't launch
+        if: steps.wait-build.outputs.conclusion == 'does not exist'
+        run: echo job does not exist && true
 
-    - name: Do something if build fail
-      if: steps.wait-build.outputs.conclusion == 'failure'
-      run: echo fail && false # fail if build fail
+      - name: Do something if build fail
+        if: steps.wait-build.outputs.conclusion == 'failure'
+        run: echo fail && false # fail if build fail
 
-    - name: Do something if build timeout
-      if: steps.wait-build.outputs.conclusion == 'timed_out'
-      run: echo Timeout && false # fail if build time out
+      - name: Do something if build timeout
+        if: steps.wait-build.outputs.conclusion == 'timed_out'
+        run: echo Timeout && false # fail if build time out
 
-    - name: Checkout git repository
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ env.SSH_HOST }}
-        username: ${{ env.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        proxy_host: ${{ env.SSH_PROXY_HOST }}
-        proxy_username: ${{ env.SSH_USERNAME }}
-        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          # Clone Git repository if not already there
-          [ ! -d '${{ matrix.env }}' ] && git clone --depth 1 https://github.com/${{ github.repository }} ${{ matrix.env }} --no-single-branch 2>&1
+      - name: Checkout git repository
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          proxy_host: ${{ env.SSH_PROXY_HOST }}
+          proxy_username: ${{ env.SSH_USERNAME }}
+          proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Clone Git repository if not already there
+            [ ! -d '${{ matrix.env }}' ] && git clone --depth 1 https://github.com/${{ github.repository }} ${{ matrix.env }} --no-single-branch 2>&1
 
-          # Go to repository directory
-          cd ${{ matrix.env }}
+            # Go to repository directory
+            cd ${{ matrix.env }}
 
-          # Fetch newest commits (in case it wasn't freshly cloned)
-          git fetch --depth 1
+            # Fetch newest commits (in case it wasn't freshly cloned)
+            git fetch --depth 1
 
-          # Checkout current commit SHA
-          git checkout -qf ${{ github.sha }}
+            # Checkout current commit SHA
+            git checkout -qf ${{ github.sha }}
 
-    - name: Set environment variables
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ env.SSH_HOST }}
-        username: ${{ env.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        proxy_host: ${{ env.SSH_PROXY_HOST }}
-        proxy_username: ${{ env.SSH_USERNAME }}
-        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          # Go to repository directory
-          cd ${{ matrix.env }}
+      - name: Set environment variables
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          proxy_host: ${{ env.SSH_PROXY_HOST }}
+          proxy_username: ${{ env.SSH_USERNAME }}
+          proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Go to repository directory
+            cd ${{ matrix.env }}
 
-          mv .env .env-dev
-          # init .env
-          echo "# Env file generated by container-deploy action"> .env
-          # Set Docker Compose variables
-          echo "DOCKER_CLIENT_TIMEOUT=180" >> .env
-          echo "COMPOSE_HTTP_TIMEOUT=180" >> .env
-          echo "COMPOSE_PROJECT_NAME=open_prices" >> .env
-          echo "COMPOSE_PATH_SEPARATOR=;" >> .env
-          echo "COMPOSE_FILE=docker-compose.yml;docker/prod.yml" >> .env
-          # This is the network shared with Product Opener.
-          # In staging, Product Opener is deployed on the same VM.
-          # In production Product Opener is deployed on a separate server and is not dockerized.
-          echo "COMMON_NET_NAME=po_webnet" >> .env
-          # Set docker variables
-          echo "TAG=sha-${{ github.sha }}" >> .env
-          echo "RESTART_POLICY=always" >> .env
-          # Set App variables
-          echo "API_PORT=8190" >> .env
-          echo "DEBUG=False" >> .env
-          echo 'ALLOWED_HOSTS=openfoodfacts-explorer.vercel.app,prices.openfoodfacts.net,prices.openfoodfacts.org' >> .env
-          echo "CSRF_TRUSTED_ORIGINS=${{ env.CSRF_TRUSTED_ORIGINS }}" >> .env
-          # Number of gunicorn workers able to handle requests
-          echo "GUNICORN_WORKERS=4" >> .env
-          echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> .env
-          echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> .env
-          echo "POSTGRES_EXPOSE=127.0.0.1:5433" >> .env
-          echo "POSTGRES_HOST=postgres.open_prices_default" >> .env
-          echo "POSTGRES_DB=postgres" >> .env
-          echo "POSTGRES_USER=postgres" >> .env
-          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
-          echo "ENVIRONMENT=${{ env.ENVIRONMENT }}" >> .env
-          echo "OAUTH2_SERVER_URL=https://world.openfoodfacts.org/cgi/auth.pl" >> .env
-          echo "OFF_DEFAULT_PASSWORD=${{ secrets.OFF_DEFAULT_PASSWORD }}" >> .env
-          echo "GOOGLE_CLOUD_VISION_API_KEY=${{ secrets.GOOGLE_CLOUD_VISION_API_KEY }}" >> .env
-          echo "GOOGLE_GENAI_USE_VERTEXAI=true" >> .env
-          echo "GOOGLE_CLOUD_LOCATION=global" >> .env
-          echo "GOOGLE_CREDENTIALS=${{ secrets.GOOGLE_CREDENTIALS }}" >> .env
-          echo "PRICE_TAG_EXTRACTION_ASYNC_REQUESTS=True" >> .env
-          echo "TRITON_URI=${{ env.TRITON_URI }}" >> .env
-          # Disable OCR temporarily, as we have no use of it
-          echo "ENABLE_OCR=False" >> .env
-          echo "ENABLE_ML_PREDICTIONS=True" >> .env
-          # echo "ENABLE_IMPORT_OFF_DB_TASK=True" >> .env  # disabled because we have the REDIS live updates
-          echo "ENABLE_IMPORT_OBF_DB_TASK=True" >> .env
-          echo "ENABLE_IMPORT_OPFF_DB_TASK=True" >> .env
-          echo "ENABLE_IMPORT_OPF_DB_TASK=True" >> .env
-          echo "REDIS_HOST=${{ env.REDIS_HOST }}" >> .env
-          echo "REDIS_PORT=${{ env.REDIS_PORT }}" >> .env
-          echo "REDIS_PRODUCT_UPDATES_STREAM_NAME=product_updates" >> .env
-          echo "ENABLE_REDIS_UPDATES=True" >> .env
-          echo "Q2_WORKERS=8" >> .env
+            mv .env .env-dev
+            # init .env
+            echo "# Env file generated by container-deploy action"> .env
+            # Set Docker Compose variables
+            echo "DOCKER_CLIENT_TIMEOUT=180" >> .env
+            echo "COMPOSE_HTTP_TIMEOUT=180" >> .env
+            echo "COMPOSE_PROJECT_NAME=open_prices" >> .env
+            echo "COMPOSE_PATH_SEPARATOR=;" >> .env
+            echo "COMPOSE_FILE=docker-compose.yml;docker/prod.yml" >> .env
+            # This is the network shared with Product Opener.
+            # In staging, Product Opener is deployed on the same VM.
+            # In production Product Opener is deployed on a separate server and is not dockerized.
+            echo "COMMON_NET_NAME=po_webnet" >> .env
+            # Set docker variables
+            echo "TAG=sha-${{ github.sha }}" >> .env
+            echo "RESTART_POLICY=always" >> .env
+            # Set App variables
+            echo "API_PORT=8190" >> .env
+            echo "DEBUG=False" >> .env
+            echo 'ALLOWED_HOSTS=openfoodfacts-explorer.vercel.app,prices.openfoodfacts.net,prices.openfoodfacts.org' >> .env
+            echo "CSRF_TRUSTED_ORIGINS=${{ env.CSRF_TRUSTED_ORIGINS }}" >> .env
+            # Number of gunicorn workers able to handle requests
+            echo "GUNICORN_WORKERS=4" >> .env
+            echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}" >> .env
+            echo "SENTRY_DSN=${{ secrets.SENTRY_DSN }}" >> .env
+            echo "POSTGRES_EXPOSE=127.0.0.1:5433" >> .env
+            echo "POSTGRES_HOST=postgres.open_prices_default" >> .env
+            echo "POSTGRES_DB=postgres" >> .env
+            echo "POSTGRES_USER=postgres" >> .env
+            echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+            echo "ENVIRONMENT=${{ env.ENVIRONMENT }}" >> .env
+            echo "OAUTH2_SERVER_URL=https://world.openfoodfacts.org/cgi/auth.pl" >> .env
+            echo "OFF_DEFAULT_PASSWORD=${{ secrets.OFF_DEFAULT_PASSWORD }}" >> .env
+            echo "GOOGLE_CLOUD_VISION_API_KEY=${{ secrets.GOOGLE_CLOUD_VISION_API_KEY }}" >> .env
+            echo "GOOGLE_GENAI_USE_VERTEXAI=true" >> .env
+            echo "GOOGLE_CLOUD_LOCATION=global" >> .env
+            echo "GOOGLE_CREDENTIALS=${{ secrets.GOOGLE_CREDENTIALS }}" >> .env
+            echo "PRICE_TAG_EXTRACTION_ASYNC_REQUESTS=True" >> .env
+            echo "TRITON_URI=${{ env.TRITON_URI }}" >> .env
+            # Disable OCR temporarily, as we have no use of it
+            echo "ENABLE_OCR=False" >> .env
+            echo "ENABLE_ML_PREDICTIONS=True" >> .env
+            # echo "ENABLE_IMPORT_OFF_DB_TASK=True" >> .env  # disabled because we have the REDIS live updates
+            echo "ENABLE_IMPORT_OBF_DB_TASK=True" >> .env
+            echo "ENABLE_IMPORT_OPFF_DB_TASK=True" >> .env
+            echo "ENABLE_IMPORT_OPF_DB_TASK=True" >> .env
+            echo "REDIS_HOST=${{ env.REDIS_HOST }}" >> .env
+            echo "REDIS_PORT=${{ env.REDIS_PORT }}" >> .env
+            echo "REDIS_PRODUCT_UPDATES_STREAM_NAME=product_updates" >> .env
+            echo "ENABLE_REDIS_UPDATES=True" >> .env
+            echo "Q2_WORKERS=8" >> .env
 
-    - name: Create Docker volumes
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ env.SSH_HOST }}
-        username: ${{ env.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        proxy_host: ${{ env.SSH_PROXY_HOST }}
-        proxy_username: ${{ env.SSH_USERNAME }}
-        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          cd ${{ matrix.env }}
-          make create_external_volumes
+      - name: Create Docker volumes
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          proxy_host: ${{ env.SSH_PROXY_HOST }}
+          proxy_username: ${{ env.SSH_USERNAME }}
+          proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ matrix.env }}
+            make create_external_volumes
 
-    - name: Start services
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ env.SSH_HOST }}
-        username: ${{ env.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        proxy_host: ${{ env.SSH_PROXY_HOST }}
-        proxy_username: ${{ env.SSH_USERNAME }}
-        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          cd ${{ matrix.env }}
-          # Get the latest version (to apply migration next)
-          make pull
-          # Apply migrations
-          make migrate-db
-          # Launch new version
-          make up
-          # copy static files so they can be served by nginx
-          make cp-static-files
+      - name: Start services
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          proxy_host: ${{ env.SSH_PROXY_HOST }}
+          proxy_username: ${{ env.SSH_USERNAME }}
+          proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ matrix.env }}
+            # Get the latest version (to apply migration next)
+            make pull
+            # Apply migrations
+            make migrate-db
+            # Launch new version
+            make up
+            # copy static files so they can be served by nginx
+            make cp-static-files
 
-    - name: Check services are up
-      uses: appleboy/ssh-action@master
-      id: livecheck
-      if: ${{ always() }}
-      with:
-        host: ${{ env.SSH_HOST }}
-        username: ${{ env.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        proxy_host: ${{ env.SSH_PROXY_HOST }}
-        proxy_username: ${{ env.SSH_USERNAME }}
-        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          cd ${{ matrix.env }}
-          # Let 10s to the API to be up
-          sleep 10
-          make livecheck
+      - name: Check services are up
+        uses: appleboy/ssh-action@master
+        id: livecheck
+        if: ${{ always() }}
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          proxy_host: ${{ env.SSH_PROXY_HOST }}
+          proxy_username: ${{ env.SSH_USERNAME }}
+          proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ matrix.env }}
+            # Let 10s to the API to be up
+            sleep 10
+            make livecheck
 
-    - name: Cleanup obsolete Docker objects
-      uses: appleboy/ssh-action@master
-      if: ${{ always() }}
-      with:
-        host: ${{ env.SSH_HOST }}
-        username: ${{ env.SSH_USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        proxy_host: ${{ env.SSH_PROXY_HOST }}
-        proxy_username: ${{ env.SSH_USERNAME }}
-        proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          cd ${{ matrix.env }}
-          make prune
+      - name: Cleanup obsolete Docker objects
+        uses: appleboy/ssh-action@master
+        if: ${{ always() }}
+        with:
+          host: ${{ env.SSH_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          proxy_host: ${{ env.SSH_PROXY_HOST }}
+          proxy_username: ${{ env.SSH_USERNAME }}
+          proxy_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd ${{ matrix.env }}
+            make prune
