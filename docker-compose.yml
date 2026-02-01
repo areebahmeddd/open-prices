@@ -81,7 +81,7 @@ services:
     mem_limit: 4g
     shm_size: 1g
     ports:
-      - "${POSTGRES_EXPOSE:-127.0.0.1:5432}:5432"
+      - "${POSTGRES_EXPOSE:-5432}"
 
   nginx:
     restart: $RESTART_POLICY
@@ -121,4 +121,4 @@ networks:
   # this is the network shared with product opener, it's only used in staging (and locally)
   common_net:
     name: ${COMMON_NET_NAME}
-    external: true
+    external: ${COMMON_NET_EXTERNAL:-false}

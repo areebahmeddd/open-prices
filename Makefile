@@ -17,7 +17,7 @@ export USER_UID:=${UID}
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=1
 DOCKER_COMPOSE=docker compose --env-file=${ENV_FILE}
-DOCKER_COMPOSE_TEST=COMPOSE_PROJECT_NAME=open_prices_test COMMON_NET_NAME=po_test docker compose --env-file=${ENV_FILE}
+DOCKER_COMPOSE_TEST=COMPOSE_PROJECT_NAME=open_prices_test COMMON_NET_NAME=po_test COMMON_NET_EXTERNAL=false POSTGRES_EXPOSE= docker compose --env-file=${ENV_FILE}
 
 # avoid target corresponding to file names, to depends on them
 .PHONY: *

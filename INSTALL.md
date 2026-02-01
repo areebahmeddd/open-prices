@@ -7,12 +7,13 @@
 
 ## Setup
 
-```
+```bash
 # Clone repo
 git clone https://github.com/openfoodfacts/open-prices.git
 cd open-prices
 
-# Copy .env.example to .env
+# Copy .env.example to .env (or use the existing .env if present)
+cp .env.example .env
 
 ```
 
@@ -45,18 +46,23 @@ python manage.py runserver 8001
 Open Prices now only supports docker compose v2 ( `docker compose` )
 :::
 
-create the dockers with
-
 ```sh
-docker compose up
+# Build containers
+make build
+
+# Start services
+make up
+
+# Run database migrations
+make migrate-db
 ```
 
-The sever should be running on <http://127.0.0.1:8000/>.
+The server should be running on <http://127.0.0.1:8000/>.
 
-The run the migration of the database with
+To run tests:
 
 ```sh
-make migrate-db
+make tests
 ```
 
 Congrats, you can now contribute to the codebase :tada:
